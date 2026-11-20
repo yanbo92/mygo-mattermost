@@ -4,6 +4,7 @@ package metal
 
 import (
 	"sync"
+	"time"
 	"unsafe"
 
 	"github.com/ebitengine/purego"
@@ -75,12 +76,14 @@ func (r *Renderer) surfaceTexture(img *scene.Image, s *scene.Surface) id {
 	t := r.images[img.ID()]
 	if t != nil && t.ver == img.Version() && t.w == img.W && t.h == img.H && (t.chroma != 0 || s.Format != scene.SurfaceNV12) {
 		t.lastFrame = r.frame
+		t.lastUsed = time.Now()
 		return t.tex
 	}
 	if s.Native != 0 {
 		if r.wrapSurface(img, s) {
 			t = r.images[img.ID()]
 			t.lastFrame = r.frame
+			t.lastUsed = time.Now()
 			return t.tex
 		}
 		return 0
@@ -110,6 +113,7 @@ func (r *Renderer) surfaceTexture(img *scene.Image, s *scene.Surface) id {
 		t.ver = img.Version()
 	}
 	t.lastFrame = r.frame
+	t.lastUsed = time.Now()
 	return t.tex
 }
 

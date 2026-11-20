@@ -357,6 +357,7 @@ type texture struct {
 	w, h      int
 	gen, ver  uint64
 	lastFrame uint64
+	lastUsed  time.Time
 	// gpu marks an image's texture that its GPUSource gave, which shows
 	// memory of its own (an IOSurface): never one to upload pixels into.
 	gpu bool
@@ -482,6 +483,7 @@ type Renderer struct {
 	stopsTex id
 	frame    uint64
 	swept    uint64 // the frame of the last sweep
+	sweptAt  time.Time
 	// Command buffers retain every resource used by their frame slot.
 	inflight    [ringSize]id
 	slot, inUse int
@@ -1064,6 +1066,7 @@ func (r *Renderer) imageTexture(img *scene.Image) uintptr {
 		}
 	}
 	t.lastFrame = r.frame
+	t.lastUsed = time.Now()
 	return t.tex
 }
 
@@ -1074,6 +1077,7 @@ func (r *Renderer) gpuTexture(img *scene.Image) uintptr {
 	t := r.images[img.ID()]
 	if t != nil && t.gpu && t.ver == img.Version() && t.w == img.W && t.h == img.H {
 		t.lastFrame = r.frame
+		t.lastUsed = time.Now()
 		return t.tex
 	}
 	tex := id(img.GPU.GPUTexture(scene.Metal, uintptr(r.device)))
@@ -1088,6 +1092,7 @@ func (r *Renderer) gpuTexture(img *scene.Image) uintptr {
 		release(&t.tex)
 	}
 	t.tex, t.w, t.h, t.ver, t.lastFrame, t.gpu = tex, img.W, img.H, img.Version(), r.frame, true
+	t.lastUsed = time.Now()
 	return t.tex
 }
 
@@ -2133,7 +2138,8 @@ const sweepEvery = 120
 // take the second way, and counting only the first, they swept seldom if
 // ever, while each frame's transient canvases piled up on the GPU.
 func (r *Renderer) sweepIfDue() {
-	if r.frame-r.swept >= sweepEvery {
+	if r.frame-r.swept >= sweepEvery || time.Since(r.sweptAt) >= time.Second {
+		r.sweptAt = time.Now()
 		r.swept = r.frame
 		r.sweep()
 	}
@@ -2143,7 +2149,7 @@ func (r *Renderer) sweepIfDue() {
 // those of canvases gone, or transient and not drawn this frame.
 func (r *Renderer) sweep() {
 	for key, t := range r.images {
-		if r.frame-t.lastFrame > 240 {
+		if r.frame-t.lastFrame > 240 || time.Since(t.lastUsed) >= 2*time.Second {
 			r.dropTexture(t)
 			delete(r.images, key)
 		}

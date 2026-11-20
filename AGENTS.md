@@ -189,3 +189,8 @@ Windows GUI tests need Windows with the WebView2 Runtime (a GitHub Actions
   behind ("What tests leave behind" in the architecture guide) fails it, not
   the tests after it. Before calling a failure older than a pull request,
   reproduce it on a new X server, without running the branch's binary on it.
+
+## Mattermost downstream snapshot
+
+Upstream provenance, patch scope and verification: `docs/mattermost-downstream.md`.
+Keep upstream source/license intact and changes limited to the measured patch.
